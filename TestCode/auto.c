@@ -25,7 +25,7 @@
 int GRID_SPEED_PRIMARY = 50;
 int GRID_SPEED_SECONDARY = 25;
 int GRID_TURN_SPEED_FAST = 30;
-int GRID_TURN_SPEED_SLOW = 0;
+int GRID_TURN_SPEED_SLOW = -30;
 
 
 
@@ -45,28 +45,7 @@ bool gridPause=true;
 int GridDirection = GRID_DIR_NORTH;
 
 bool bLineDetected = false;
-  void GridInit()
-  {
-  	resetGyro(GRID_PORT_GYRO);
-		if(getColorMode(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) != colorTypeGrayscale_Reflected)
-		{
-			setColorMode(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER, colorTypeGrayscale_Reflected);
-			while(!getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER))
-			{
-				sleep(25);
-			}
-		}
 
-		if(getColorMode(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR) != colorTypeGrayscale_Reflected)
-		{
-			setColorMode(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR, colorTypeGrayscale_Reflected);
-			while(!getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR))
-			{
-				sleep(25);
-			}
-		}
-    sleep(1000);
-  }
   int GridGetGyroDegrees()
   {
    /*
@@ -89,6 +68,39 @@ bool bLineDetected = false;
   {
 		displayTextLine(line1,"%d:%d %d:%d Dir:%d:%d %d",GridX,GridY,TargetX,TargetY,getGyroDegrees(GRID_PORT_GYRO),GridGetGyroDegrees(),TargetDir);
   }
+  task Display()
+  {
+  	 repeat (forever) {
+  	   GridUpdateStatus();
+  	   sleep(25);
+  	 }
+
+  }
+  void GridInit()
+  {
+  	startTask(Display);
+  	resetGyro(GRID_PORT_GYRO);
+		if(getColorMode(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) != colorTypeGrayscale_Reflected)
+		{
+			setColorMode(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER, colorTypeGrayscale_Reflected);
+			while(!getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER))
+			{
+				sleep(25);
+			}
+		}
+
+		if(getColorMode(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR) != colorTypeGrayscale_Reflected)
+		{
+			setColorMode(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR, colorTypeGrayscale_Reflected);
+			while(!getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR))
+			{
+				sleep(25);
+			}
+		}
+    sleep(1000);
+  }
+
+
   void GridPause()
   {
      gridPause = true;
@@ -139,19 +151,28 @@ bool bLineDetected = false;
     }
     stopAllMotors();
     GridDirection = Direction;
+    playSound(soundWrongWay);
+    sleep(10000);
   }
 		void GridTurnToLine()
 	{
 		bool bFound = false;
+		bool bOnLine = false;
 		bool bReverse=false;
 		return;
-		setMotorSpeeds(GRID_TURN_SPEED_FAST, GRID_TURN_SPEED_FAST*-1);
+		setMotorSpeeds(10, 10*-1);
+		/*Find the right edge, when turning right wait until we cross the whole line*/
 		while(!bFound && !bReverse)
 		{
+
 			if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR) < GRID_THRESHHOLD_DETECTOR)
 			{
-				bFound = true;
+				bOnLine = true;
 			}
+			else if(bOnLine)
+			{
+				bFound = true;
+		  }
 			if(abs(GridGetGyroDegrees()-GridDirection) > 45)
 			{
 				bReverse=true;
@@ -160,7 +181,7 @@ bool bLineDetected = false;
 	  if(!bFound)
 	  {
 	  	bReverse=false;
-	  	setMotorSpeeds(GRID_TURN_SPEED_FAST * -1, GRID_TURN_SPEED_FAST);
+	  	setMotorSpeeds(10 * -1, 10);
 			while(!bFound && !bReverse)
 			{
 				if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR) < GRID_THRESHHOLD_DETECTOR)
@@ -188,6 +209,7 @@ bool bLineDetected = false;
 	  		{
 	  			if(GridDirection != GRID_DIR_NORTH)
 	  			{
+	  				displayText(line2,"TURN NORTH");
 	  				GridSetDirection(GRID_DIR_NORTH);
 	  				GridTurnToLine();
 	  			}
@@ -196,6 +218,7 @@ bool bLineDetected = false;
 	  	  {
 	  	  	if(GridDirection != GRID_DIR_SOUTH)
 	  	  	{
+	  	  		displayText(line2,"TURN SOUTH");
 	  	  		GridSetDirection(GRID_DIR_SOUTH);
 	  	  		GridTurnToLine();
 	  	  	}
@@ -207,6 +230,7 @@ bool bLineDetected = false;
 	  		{
 	  			if(GridDirection != GRID_DIR_EAST)
 	  			{
+	  				displayText(line2,"TURN EAST");
 	  				GridSetDirection(GRID_DIR_EAST);
 	  				GridTurnToLine();
 	  			}
@@ -215,6 +239,7 @@ bool bLineDetected = false;
 	  	  {
 	  	  	if(GridDirection != GRID_DIR_WEST)
 	  	  	{
+	  	  		displayText(line2,"TURN WEST");
 	  	  		GridSetDirection(GRID_DIR_WEST);
 	  	  		GridTurnToLine();
 	  	  	}
@@ -225,18 +250,6 @@ bool bLineDetected = false;
 			else
 				setMotorSpeeds(GRID_SPEED_PRIMARY, GRID_SPEED_SECONDARY);
 
-
-	  }
-	  else
-	  {
-	  	  /*Reached the target*/
-	  	  if(!gridPause)
-	  	  {
-	 		 		stopAllMotors();
-	 		 		GridPause();
-	 		  }
-
-	  }
 			if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR) < GRID_THRESHHOLD_DETECTOR && bLineDetected == false)
 			{
 				if(GridDirection == GRID_DIR_NORTH)
@@ -254,9 +267,23 @@ bool bLineDetected = false;
 			{
 				bLineDetected = false;
 			}
+
+	  }
+	  else
+	  {
+	  	  /*Reached the target*/
+	  	  if(!gridPause)
+	  	  {
+	 		 		stopAllMotors();
+	 		 		GridPause();
+	 		  }
+
+	  }
+
+
 		GridUpdateStatus();
 	}
-	void GridFindLine()
+	void GridFindLine(bool bFarSide)
 	{
 		bool bFound = false;
 		setMotorSpeeds(GRID_SPEED_PRIMARY, GRID_SPEED_PRIMARY);
@@ -267,8 +294,20 @@ bool bLineDetected = false;
 				bFound = true;
 			}
 	  }
+	  if(bFarSide)
+	  {
+	  	bFound=false;
+	  	while(!bFound)
+	  	{
+				if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR) < GRID_THRESHHOLD_DETECTOR)
+				{
+					bFound = true;
+				}
+		  }
+	  }
 	  stopAllMotors();
   }
+
 /*
  * Grid Tracker End
  */
@@ -330,7 +369,7 @@ task main()
 	int job=1;
 	displayText(line5,"job1");
 
-	/*GridSetDirection(GRID_DIR_EAST);
+	GridSetDirection(GRID_DIR_EAST);
 	sleep(2000);
 	GridSetDirection(GRID_DIR_SOUTH);
 	sleep(2000);
@@ -344,7 +383,7 @@ task main()
 		sleep(2000);	done=true;
 		GridSetDirection(GRID_DIR_SOUTH);
 
-	sleep(2000);	done=true;	*/
+	sleep(2000);	done=true;
 	startTask(CheckBumper);
 	while (!done) {
 
@@ -356,11 +395,13 @@ task main()
 				case 1:
 				{
 				  displayTextLine(line5,"Job %d",job);
-					GridFindLine();
+					GridFindLine(true);
 					playSound(soundTada);
 					sleep(10000);
 					GridX = 2;
 					GridY = 1;
+					TargetX = 2;
+					TargetY = 1;
 					job++;
 			  }
 				break;
@@ -368,25 +409,23 @@ task main()
 				{
 				  displayTextLine(line5,"Job %d",job);
 					GridGoto(0,1);
-					playSound(soundTada);
-					sleep(10000);
+					/*playSound(soundTada);
+					sleep(10000);					*/
 					job++;
 				}
 				break;
 
 				case 3:
 				{
-					playSound(soundTada);
-					sleep(10000);
-					/*GridSetDirection(GRID_DIR_EAST);
+					GridSetDirection(GRID_DIR_EAST);
 					playSound(soundTada);
 					sleep(2000);
 
-					displayTextLine(line5,"Job %d",job);
+					/*displayTextLine(line5,"Job %d",job);
 					GridSetDirection(GRID_DIR_NORTH);
 					playSound(soundTada);
 					sleep(2000);
-					GridGoto(1,2);
+					GridGoto(1,2);					*/
 					while(!done)
 					{
 						  if(getDistanceValue(distLeft) > 100 && getDistanceValue(distRight) > 100)
@@ -404,8 +443,8 @@ task main()
      				 }
 
      				displayTextLine(line5,"%d:%d:%d:%d ",getDistanceValue(distLeft),getDistanceValue(distRight),getDistanceSecondStrongest(distLeft),getDistanceSecondStrongest(distRight));
-     				*/
-     				done = true;
+
+
    				}
 					job++;
 					playSound(soundTada);
