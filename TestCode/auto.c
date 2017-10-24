@@ -32,9 +32,9 @@
 #define GRID_MOTOR_LEFT leftMotor
 #define GRID_MOTOR_TRAVEL_PER_TURN_IN_MM 200
 
-int GRID_SPEED_PRIMARY = 25;
-int GRID_SPEED_SECONDARY = 0;
-int GRID_TURN_SPEED_FAST = 30;
+int GRID_SPEED_PRIMARY = 75;
+int GRID_SPEED_SECONDARY = 25;
+int GRID_TURN_SPEED_FAST = 50;
 int GRID_TURN_SPEED_SLOW = 0;
 bool GRID_DEBUG = true;
 
@@ -267,6 +267,15 @@ void GridTurnToLine()
 		{
 			sleep(25);
 		}
+
+		/*Get past zero if going to the left */
+		if(rightLimit == 45)
+		{
+			while(GridGetGyroDegrees() > 340)
+			{
+				sleep(10);
+			}
+		}
 		GridStatus("GridTurnToLine Left");
 		while(!bFound && !bReverse)
 		{
@@ -275,7 +284,7 @@ void GridTurnToLine()
 			{
 				bFound = true;
 			}
-			if(abs(GridGetDistance(GridGetGyroDegrees(),leftLimit)) > 45)
+			if(GridGetGyroDegrees() > leftLimit)
 			{
 				bReverse=true;
 			}
@@ -286,7 +295,10 @@ void GridTurnToLine()
 #endif
 	GridStatus("GridTurnToLine Done");
 	if(!bFound)
+	{
 		playSound(soundCarAlarm4);
+		sleep(2000);
+	}
 }
 
 void GridProcess()
@@ -502,6 +514,21 @@ task main()
 //#define GRID_TEST_TURN_TO_LINE
 #ifdef GRID_TEST_TURN_TO_LINE
 	GridTurnToLine();
+	sleep(2000);
+
+  GridSetDirection(GRID_DIR_EAST);
+	GridTurnToLine();
+	sleep(2000);
+
+  GridSetDirection(GRID_DIR_SOUTH);
+	GridTurnToLine();
+	sleep(2000);
+
+
+  GridSetDirection(GRID_DIR_WEST);
+	GridTurnToLine();
+	sleep(2000);
+
 	done = true;
 #endif
 
@@ -609,6 +636,8 @@ task main()
 				break;
 			case 6:
 				{
+					GridSetDirection(GRID_DIR_SOUTH);
+					GridMoveForward(600);
 					done = true;
 				}
 				break;
