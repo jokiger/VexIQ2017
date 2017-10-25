@@ -450,9 +450,10 @@ void GridMoveBackward(int mm)
 /*
 * Grid Tracker End
 */
+bool bBumper1Pressed = false;
 task CheckBumper()
 {
-	bool bBumper1Pressed = false;
+
 	bool bMotorOverlimit = false;
 	repeat (forever) {
 		if(getBumperValue(bumpSwitch) && bBumper1Pressed == false)
@@ -485,6 +486,36 @@ task CheckBumper()
 		}
 	}
 
+}
+
+void GotoPoll()
+{
+	  bool done = false;
+		while(!done)
+		{
+			displayTextLine(line5,"%d %d",getDistanceValue(distLeft),getDistanceValue(distRight));
+			if(getDistanceValue(distLeft) > 50 && getDistanceValue(distRight) > 50)
+			{
+				updateMotorDriveTrain();
+				if(getDistanceValue(distLeft) > getDistanceValue(distRight))
+					setMotorSpeeds(10,0);
+				else
+					setMotorSpeeds(0,10);
+				}
+				else
+				{
+					stopAllMotors();
+				}
+				if(bBumper1Pressed)
+				{
+					playSound(soundTada);
+					sleep(2000);
+					GridMoveBackward(100);
+					done=true;
+			  }
+		}
+		playSound(soundTada);
+		sleep(2000);
 }
 
 task main()
@@ -552,6 +583,35 @@ task main()
 	done = true;
 #endif
 
+//#define TEST_DISTANCE
+#ifdef TEST_DISTANCE
+		startTask(CheckBumper);
+		while(!done)
+		{
+			displayTextLine(line5,"%d %d",getDistanceValue(distLeft),getDistanceValue(distRight));
+			if(getDistanceValue(distLeft) > 50 && getDistanceValue(distRight) > 50)
+			{
+				updateMotorDriveTrain();
+				if(getDistanceValue(distLeft) > getDistanceValue(distRight))
+					setMotorSpeeds(10,0);
+				else
+					setMotorSpeeds(0,10);
+				}
+				else
+				{
+					stopAllMotors();
+				}
+				if(bBumper1Pressed)
+				{
+					playSound(soundTada);
+					sleep(2000);
+					GridMoveBackward(100);
+					done=true;
+			  }
+		}
+		playSound(soundTada);
+		sleep(2000);
+#endif
 	int job=1;
 	int sleeptime=0;
 	displayText(line5,"job1");
@@ -636,6 +696,9 @@ task main()
 				break;
 			case 6:
 				{
+					GridSetDirection(GRID_DIR_EAST);
+					GridMoveBackward(200);
+					GotoPoll();
 					GridSetDirection(GRID_DIR_SOUTH);
 					GridMoveForward(600);
 					done = true;
