@@ -74,7 +74,7 @@ bool SetButtonHandlerCallback(int button,void *ButtonDown,void *ButtonUp,void *B
 /*
 End Button Handler Code
 */
-bool bArcadeControl = true;
+bool bArcadeControl = false;
 long GyroStartPos = 0;
 bool bReverseDirection=false;
 
@@ -134,15 +134,15 @@ task CheckButtons()
     }
    	/*	BtnRDown*/
 
-  	if( vexRT[ BtnRDown ] == 1 && !bButtonDown[BtnRDown])
+  	if( vexRT[ BtnLUp ] == 1 && !bButtonDown[BtnLUp])
 		{
-			bButtonDown[BtnRDown] = true;
+			bButtonDown[BtnLUp] = true;
 			setMotor(elevMotor,-100);
    	}
-   	if( vexRT[ BtnRDown ] == 0 && bButtonDown[BtnRDown])
+   	if( vexRT[ BtnLUp ] == 0 && bButtonDown[BtnLUp])
    	{
    		stopMotor(elevMotor);
-   		bButtonDown[BtnRDown] = false;
+   		bButtonDown[BtnLUp] = false;
    	}
 
 		/*BtnFDown Handling*/
@@ -218,7 +218,7 @@ task main()
   bool bMotorOverlimit = false;
 
  	arcadeControl(ChA, ChB, 0);
- 	displayText(line4, "arcade");
+ 	displayText(line4, "tank");
  	startTask(CheckButtons);
   GyroStartPos = getGyroDegrees(armGyro);
 
