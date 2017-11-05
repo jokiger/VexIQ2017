@@ -216,7 +216,7 @@ task main()
 {
 	bool bBumper1Pressed = false;
   bool bMotorOverlimit = false;
-
+  bool btnRDownPressed = false;
  	arcadeControl(ChA, ChB, 0);
  	displayText(line4, "tank");
  	startTask(CheckButtons);
@@ -236,10 +236,13 @@ task main()
 		displayMotorValues(line2, leftMotor);
 		displayMotorValues(line3, rightMotor);*/
 	/*	armControl(armMotor, BtnEDown, BtnEUp, 30);*/
+	if(!btnRDownPressed)
+	{
 		if(bArcadeControl)
 			myArcadeControl(ChA, ChB, 0);
 	  else
 	  	tankControl(ChD,ChA,10);
+  }
 	 displaySensorValues(line2, bumpSwitch);
 
 	   if(getBumperValue(bumpSwitch) && bBumper1Pressed == false)
@@ -282,7 +285,23 @@ task main()
 	   {
 	   	 bMotorOverlimit = false;
 	   }
+	if( vexRT[ BtnRDown ] == 1  && !btnRDownPressed)
+		{
+			btnRDownPressed = true;
+			playSound(soundCarAlarm2);
+			setMotor(rightMotor,100);
+			setMotor(leftMotor,100);
 
+
+		}
+		else if( vexRT[ BtnRDown ] == 0 && btnRDownPressed)
+		{
+			btnRDownPressed = false;
+			playSound(soundCarAlarm4);
+      stopMotor(rightMotor);
+      stopMotor(leftMotor);
+
+   	}
 	   displayTextLine(line5, "%d:%d:%d", getMotorCurrent(armMotor),getMotorBrakeMode(armMotor),getMotorZeroVelocity(armMotor));
 	}
 }
