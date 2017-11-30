@@ -29,7 +29,7 @@
 #define GRID_MOTOR_RIGHT rs
 #define GRID_MOTOR_LEFT ls
 #define GRID_MOTOR_TRAVEL_PER_TURN_IN_MM 200
-#define GRID_MOVE_AFTER_LINE  100
+int GRID_MOVE_AFTER_LINE = 100;
 
 int GRID_SPEED_PRIMARY = 75;
 int GRID_SPEED_SECONDARY = 60;
@@ -255,6 +255,7 @@ void GridTurnToLine()
 
 	while(!bFound && !bReverse)
 	{
+		setTouchLEDColor(ledfront,colorRed);
 		if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) < GRID_THRESHHOLD_DETECTOR)
 		{
 			bOnLine = true;
@@ -298,7 +299,7 @@ void GridTurnToLine()
 		GridStatus("GridTurnToLine Left");
 		while(!bFound && !bReverse)
 		{
-
+		setTouchLEDColor(ledfront,colorGreen);
 			if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) < GRID_THRESHHOLD_DETECTOR)
 			{
 				bFound = true;
@@ -371,6 +372,7 @@ void GridProcess()
 		if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) > GRID_THRESHHOLD_FOLLOWER)
 		{
 			GridStatus("Off the line");
+			setTouchLEDColor(ledback,colorRed);
 #ifndef GRID_NO_MOVE
 			setMotorSpeeds(GRID_SPEED_SECONDARY, GRID_SPEED_PRIMARY);
 #endif
@@ -378,6 +380,7 @@ void GridProcess()
 		else
 		{
 			GridStatus("On the line");
+			setTouchLEDColor(ledback,colorGreen);
 #ifndef GRID_NO_MOVE
 			setMotorSpeeds(GRID_SPEED_PRIMARY, GRID_SPEED_SECONDARY);
 #endif
@@ -456,24 +459,84 @@ void GridFindLine(bool bFarSide)
 * Grid Tracker End
 */
 
+bool bDone = false;
+task Elevator()
+{
+	bool bMotorOverlimit = false;
+	setMotor(e,-100);
+	while(!bDone)
+	{
+	//check if amps morter flipper is using and if is doing it over limit
+		if(getMotorCurrent(e) > 600 && !bMotorOverlimit)
+		{
+			bMotorOverlimit = true;
+			clearTimer(T1);
+		}
+		//set flipper amps using to 0 so you cn move it freely
+		else if(getMotorCurrent(e) > 600 && bMotorOverlimit)
+		{
+			if(time1[T1] > 275)
+			{
+				setMotorSpeed(e,100);
+				sleep(375);
+			}
+		}
+		else
+		{
+			setMotorSpeed(e,-100);
+			bMotorOverlimit = false;
+		}
+  }
+  setMotor(e,0);
+}
 task main()
 {
 	 bool bDone = false;
 	 int job=1;
+	 bool bumperdisabled=true;
+	 bool bumper1Pressed=false;
+	 //set ups the grid tracter and sensers
+	 startTask(Elevator);
+	 while(!bDone)
+	 {
+	 }
    GridInit();
    sleep(1000);
+   //go to frist line
    GridFindLine(true);
 
-
+   //mke robot turn right
    GridSetDirection(GRID_DIR_EAST);
+   //go backwards
    GridMoveBackward(300);
+   //tell it were it is
    GridSetLocation(2,2);
+   //set target to were he goes
  	 TargetX = 2;
 	 TargetY = 2;
 
 
    while (!bDone) {
        GridProcess();
+			if(!bumperdisabled)
+			{
+				//auto flipper based on bumper1 and bumper1pressed
+				if(getBumperValue(bumper1) && bumper1Pressed == false)
+				{
+
+					setMotorTarget(flipper, -110, 20);
+					bumper1Pressed = true;
+				}
+
+				if(!getBumperValue(bumper1) && bumper1Pressed)
+				{
+					setMotorTarget(flipper,0, 20);
+					bumper1Pressed = false;
+					// resetMotorEncoder(flipper);
+
+				}
+
+			}
        if(gridPause)
        {
    	 		 switch(job)
@@ -481,7 +544,7 @@ task main()
    	     	case 1:
    	     	{
       	     displayTextLine(line5,"Job %d",job);
-
+						//make robot go in line to the bonus tray right side
 					  	TargetX = 3;
 						  TargetY = 2;
 						  GridResume();
@@ -490,10 +553,11 @@ task main()
    	    	 }
    	    	 case 2:
    	    	 {
-
+   	    	   //go to bounus tray right side and release it
       	       displayTextLine(line5,"Job %d",job);
 						  GridSetDirection(GRID_DIR_NORTH);
 						  GridMoveBackward(100);
+						  GRID_MOVE_AFTER_LINE = 75;
 						  GridGoto(3,8);
 
 						   job++;
@@ -501,6 +565,8 @@ task main()
    	       }
    	       case 3:
    	       {
+   	         displayTextLine(line5,"Job %d",job);
+   	         //go to by left bonus tray
    	          GridMoveBackward(250);
    	          playSound(soundTada);
    	          GridSetDirection(GRID_DIR_WEST);
@@ -513,8 +579,12 @@ task main()
    	       }
    	       case 4:
    	       {
+   	         displayTextLine(line5,"Job %d",job);
+   	         //move robot off the wall
    	          GridMoveBackward(150);
+   	          //make robot face bouns tray
    	         GridSetDirection(GRID_DIR_NORTH);
+   	         // release bouns tray
    	          GridMoveForward(25);
 
    	         job++;
@@ -522,13 +592,18 @@ task main()
    	       }
    	       case 5:
    	       {
-   	         GridSetLocation(1,8);
-   	         GridGoto(1,7);
+   	         displayTextLine(line5,"Job %d",job);
+   	         GridMoveBackward(250);
+   	         GridSetDirection(GRID_DIR_WEST);
+   	         startTask(Elevator);
+   	         bumperdisabled=false;
+   	        GridMoveBackward(600);
    	         job++;
    	     }
    	    	 case 6:
    	    	 {
-   	    	     bDone = true;
+   	    	   displayTextLine(line5,"Job %d",job);
+   	    	  // bDone = true;
    	    	     break;
    	       }
 
