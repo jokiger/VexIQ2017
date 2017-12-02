@@ -35,7 +35,7 @@
 int GRID_SPEED_PRIMARY = 75;
 int GRID_SPEED_SECONDARY = 25;
 int GRID_TURN_SPEED_FAST = 50;
-int GRID_TURN_SPEED_SLOW = 0;
+int GRID_TURN_SPEED_SLOW = -25;
 bool GRID_DEBUG = true;
 
 
@@ -179,10 +179,13 @@ void GridGoto(int x,int y)
 
 void GridSetDirection(int Direction)
 {
+	sleep(20000);
 	GridStatus("GridSetDirection");
+	sleep(20000);
 	updateMotorDriveTrain();
 	TargetDir=Direction;
-
+	sleep(20000);
+	//sleep(20000);
 	while(abs(GridGetGyroDegrees()-Direction) > GRID_GYRO_THRESHOLD)
 	{
 		int Distance = GridGetDistance(GridGetGyroDegrees(),Direction);
@@ -213,10 +216,12 @@ void GridTurnToLine()
 	bool bOnLine = false;
 	bool bReverse=false;
 	updateMotorDriveTrain();
-#ifndef	GRID_NO_MOVE
-	setMotorSpeeds(GRID_TURN_SPEED_FAST, GRID_TURN_SPEED_FAST*-1);
-#endif
 	GridStatus("GridToLine Right");
+//	sleep(10000);
+#ifndef	GRID_NO_MOVE
+	setMotorSpeeds(GRID_TURN_SPEED_FAST, GRID_TURN_SPEED_SLOW);
+#endif
+
 	/*Find the right edge, when turning right wait until we cross the whole line*/
 	int leftLimit = GridDirection+45;
 	int rightLimit;
@@ -260,7 +265,7 @@ void GridTurnToLine()
 		GridStatus("GridToLine Left");
 		bReverse=false;
 #ifndef GRID_NO_MOVE
-		setMotorSpeeds(GRID_TURN_SPEED_FAST * -1, GRID_TURN_SPEED_FAST);
+		setMotorSpeeds(GRID_TURN_SPEED_SLOW, GRID_TURN_SPEED_FAST);
 #endif
 		GridStatus("GridTurnToLine Left Restting to straight");
 		while(abs(GridGetGyroDegrees()-GridDirection) > 3)
@@ -432,19 +437,23 @@ void GridFindLine(bool bFarSide)
 void GridMoveForward(int mm)
 {
 	int Rotation = (((float)mm/(float)GRID_MOTOR_TRAVEL_PER_TURN_IN_MM) * 360);
+#ifndef GRID_NO_MOVE
 	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation,GRID_SPEED_PRIMARY);
 	moveMotorTarget(GRID_MOTOR_LEFT,Rotation,GRID_SPEED_PRIMARY);
 	waitUntilMotorStop(GRID_MOTOR_RIGHT);
 	waitUntilMotorStop(GRID_MOTOR_LEFT);
+#endif
 }
 
 void GridMoveBackward(int mm)
 {
 	int Rotation = (((float)mm/(float)GRID_MOTOR_TRAVEL_PER_TURN_IN_MM) * 360);
+#ifndef GRID_NO_MOVE
 	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation*-1,GRID_SPEED_PRIMARY);
 	moveMotorTarget(GRID_MOTOR_LEFT,Rotation*-1,GRID_SPEED_PRIMARY);
 	waitUntilMotorStop(GRID_MOTOR_RIGHT);
 	waitUntilMotorStop(GRID_MOTOR_LEFT);
+#endif
 }
 
 /*
@@ -497,15 +506,21 @@ void GotoPoll()
 			if(getDistanceValue(distLeft) > 50 && getDistanceValue(distRight) > 50)
 			{
 				updateMotorDriveTrain();
+#ifndef GRID_NO_MOVE
 				if(getDistanceValue(distLeft) > getDistanceValue(distRight))
+				{
 					setMotorSpeeds(10,0);
-				else
-					setMotorSpeeds(0,10);
 				}
 				else
 				{
-					stopAllMotors();
+					setMotorSpeeds(0,10);
 				}
+			}
+			else
+			{
+				stopAllMotors();
+			}
+#endif
 				if(bBumper1Pressed)
 				{
 					playSound(soundTada);
@@ -517,7 +532,6 @@ void GotoPoll()
 		playSound(soundTada);
 		sleep(2000);
 }
-
 task main()
 {
 	GridInit();
@@ -588,6 +602,7 @@ task main()
 		startTask(CheckBumper);
 		while(!done)
 		{
+
 			displayTextLine(line5,"%d %d",getDistanceValue(distLeft),getDistanceValue(distRight));
 			if(getDistanceValue(distLeft) > 50 && getDistanceValue(distRight) > 50)
 			{
@@ -616,6 +631,7 @@ task main()
 	int sleeptime=0;
 	displayText(line5,"job1");
 	startTask(CheckBumper);
+
 	while (!done) {
 
 		GridProcess();
@@ -640,8 +656,9 @@ task main()
 					playSound(soundTada);
 					sleep(sleeptime);
 					/*Backup a bit to be further from line*/
+					GridMoveForward(150);
 					GridSetDirection(GRID_DIR_WEST);
-					GridMoveBackward(100);
+					GridMoveBackward(200);
 					GridGoto(0,1);
 					job++;
 				}
