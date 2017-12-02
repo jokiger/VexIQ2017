@@ -29,7 +29,7 @@
 #define GRID_MOTOR_RIGHT rs
 #define GRID_MOTOR_LEFT ls
 #define GRID_MOTOR_TRAVEL_PER_TURN_IN_MM 200
-int GRID_MOVE_AFTER_LINE = 100;
+int GRID_MOVE_AFTER_LINE = 110;
 
 int GRID_SPEED_PRIMARY = 75;
 int GRID_SPEED_SECONDARY = 60;
@@ -489,17 +489,38 @@ task Elevator()
   }
   setMotor(e,0);
 }
+task CheckBumper()
+{
+		 bool bumper1Pressed=false;
+		while(!bDone)
+		{
+				//auto flipper based on bumper1 and bumper1pressed
+				if(getBumperValue(bumper1) && bumper1Pressed == false)
+				{
+
+					setMotorTarget(flipper, -110, 20);
+					bumper1Pressed = true;
+				}
+
+				if(!getBumperValue(bumper1) && bumper1Pressed)
+				{
+					setMotorTarget(flipper,0, 20);
+					bumper1Pressed = false;
+					// resetMotorEncoder(flipper);
+
+				}
+
+
+	  }
+}
 task main()
 {
 	 bool bDone = false;
 	 int job=1;
-	 bool bumperdisabled=true;
-	 bool bumper1Pressed=false;
+
 	 //set ups the grid tracter and sensers
-	 startTask(Elevator);
-	 while(!bDone)
-	 {
-	 }
+
+
    GridInit();
    sleep(1000);
    //go to frist line
@@ -518,25 +539,7 @@ task main()
 
    while (!bDone) {
        GridProcess();
-			if(!bumperdisabled)
-			{
-				//auto flipper based on bumper1 and bumper1pressed
-				if(getBumperValue(bumper1) && bumper1Pressed == false)
-				{
 
-					setMotorTarget(flipper, -110, 20);
-					bumper1Pressed = true;
-				}
-
-				if(!getBumperValue(bumper1) && bumper1Pressed)
-				{
-					setMotorTarget(flipper,0, 20);
-					bumper1Pressed = false;
-					// resetMotorEncoder(flipper);
-
-				}
-
-			}
        if(gridPause)
        {
    	 		 switch(job)
@@ -585,7 +588,7 @@ task main()
    	          //make robot face bouns tray
    	         GridSetDirection(GRID_DIR_NORTH);
    	         // release bouns tray
-   	          GridMoveForward(25);
+   	          GridMoveForward(50);
 
    	         job++;
    	          break;
@@ -593,17 +596,30 @@ task main()
    	       case 5:
    	       {
    	         displayTextLine(line5,"Job %d",job);
-   	         GridMoveBackward(250);
+   	         GridMoveBackward(375);
    	         GridSetDirection(GRID_DIR_WEST);
+
    	         startTask(Elevator);
-   	         bumperdisabled=false;
-   	        GridMoveBackward(600);
+   	         startTask(CheckBumper);
+
+   	         GRID_SPEED_PRIMARY = 10;
+   	        GridMoveBackward(400);
+   	        GRID_TURN_SPEED_FAST = 50;
+   	        GRID_TURN_SPEED_SLOW = -50;
+   	        GridSetDirection(GRID_DIR_EAST);
+   	        //GridTurnToLine();
+   	        GridSetLocation(3,7);
+   	        GridGoto(3,8);
+   	        //GridMoveForward(120);
    	         job++;
    	     }
    	    	 case 6:
    	    	 {
    	    	   displayTextLine(line5,"Job %d",job);
-   	    	  // bDone = true;
+   	    	   GridSetDirection(GRID_DIR_EAST);
+   	    	   GridMoveForward(120);
+   	    	   sleep(5500);
+   	    	   bDone = true;
    	    	     break;
    	       }
 
