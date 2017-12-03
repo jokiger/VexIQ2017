@@ -12,7 +12,7 @@
 
 #define GRID_WIDTH 4
 #define GRID_LENGTH 8
-#define GRID_THRESHHOLD_FOLLOWER 100
+#define GRID_THRESHHOLD_FOLLOWER 150
 #define GRID_THRESHHOLD_DETECTOR 100
 #define GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER  centercolor
 #define GRID_PORT_COLOR_SENSOR_LINE_DETECTOR  rightcolor
@@ -21,12 +21,14 @@
 #define GRID_MOTOR_RIGHT rs
 #define GRID_MOTOR_LEFT ls
 #define GRID_MOTOR_TRAVEL_PER_TURN_IN_MM 200
+#define GRID_TURN_TO_LINE_DEGREES 10
 int GRID_MOVE_AFTER_LINE = 110;
 
 int GRID_SPEED_PRIMARY = 75;
-int GRID_SPEED_SECONDARY = 60;
+int GRID_SPEED_SECONDARY = 50;
 int GRID_TURN_SPEED_FAST = 50;
 int GRID_TURN_SPEED_SLOW = 0;
+int GRID_TURN_TO_LINE = 10;
 bool GRID_DEBUG = true;
 #include "GridTracker.c"
 
@@ -130,7 +132,8 @@ task main()
    	    	   //go to bounus tray right side and release it
       	       displayTextLine(line5,"Job %d",job);
 						  GridSetDirection(GRID_DIR_NORTH);
-						  GridMoveBackward(100);
+						  GridMoveBackward(150);
+						  GridTurnToLine();
 						  GRID_MOVE_AFTER_LINE = 75;
 						  GridGoto(3,8);
 

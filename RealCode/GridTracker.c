@@ -21,12 +21,14 @@
 #define GRID_MOTOR_RIGHT rs
 #define GRID_MOTOR_LEFT ls
 #define GRID_MOTOR_TRAVEL_PER_TURN_IN_MM 200
+#define GRID_TURN_TO_LINE_DEGREES 45
 int GRID_MOVE_AFTER_LINE = 100;
 
 int GRID_SPEED_PRIMARY = 75;
 int GRID_SPEED_SECONDARY = 60;
 int GRID_TURN_SPEED_FAST = 50;
 int GRID_TURN_SPEED_SLOW = 0;
+int GRID_TURN_TO_LINE = 10;
 bool GRID_DEBUG = true;
 */
 /*Setup End*/
@@ -79,7 +81,6 @@ void GridMoveBackward(int mm)
 void GridStatus(const char * s)
 {
 	sGridStatus = s;
-	writeDebugStreamLine(sGridStatus);
 }
 int GridGetGyroDegrees()
 {
@@ -123,14 +124,16 @@ task Display()
 {
 	repeat (forever) {
 		GridUpdateStatus();
-		sleep(25);
+		sleep(100);
 	}
 
 }
 void GridInit()
 {
-	startTask(Display);
-	clearDebugStream();
+	if(GRID_DEBUG)
+	{
+	   startTask(Display);
+  }
 	GridStatus("GridInit");
 	short count = 200;
 	startGyroCalibration( GRID_PORT_GYRO, gyroCalibrateSamples64 );
@@ -226,26 +229,25 @@ void GridTurnToLine()
 	bool bReverse=false;
 	updateMotorDriveTrain();
 #ifndef	GRID_NO_MOVE
-	setMotorSpeeds(GRID_TURN_SPEED_FAST, GRID_TURN_SPEED_FAST*-1);
+	setMotorSpeeds(GRID_TURN_TO_LINE, GRID_TURN_TO_LINE*-1);
 #endif
 	GridStatus("GridToLine Right");
 	/*Find the right edge, when turning right wait until we cross the whole line*/
 	int leftLimit = GridDirection+45;
 	int rightLimit;
-	if(GridDirection-45+360 >  360)
-		rightLimit=GridDirection-45;
+	if(GridDirection-GRID_TURN_TO_LINE_DEGREES+360 >  360)
+		rightLimit=GridDirection-GRID_TURN_TO_LINE_DEGREES;
 	else
-		rightLimit=GridDirection-45+360;
+		rightLimit=GridDirection-GRID_TURN_TO_LINE_DEGREES+360;
 
 	/*Get past zero if going to the right */
-	if(rightLimit == 315)
+	if(rightLimit == 360-GRID_TURN_TO_LINE_DEGREES )
 	{
 		while(GridGetGyroDegrees() < 340)
 		{
 			sleep(10);
 		}
 	}
-
 	while(!bFound && !bReverse)
 	{
 		setTouchLEDColor(ledfront,colorRed);
@@ -256,6 +258,9 @@ void GridTurnToLine()
 		else if(bOnLine)
 		{
 			bFound = true;
+#ifndef GRID_NO_MOVE
+			GridStopAllMotors();
+#endif
 		}
 		if(!bOnLine)
 		{
@@ -268,12 +273,13 @@ void GridTurnToLine()
 			}
 		}
 	}
+
 	if(!bFound)
 	{
 		GridStatus("GridToLine Left");
 		bReverse=false;
 #ifndef GRID_NO_MOVE
-		setMotorSpeeds(GRID_TURN_SPEED_FAST * -1, GRID_TURN_SPEED_FAST);
+		setMotorSpeeds(GRID_TURN_TO_LINE * -1, GRID_TURN_TO_LINE);
 #endif
 		GridStatus("GridTurnToLine Left Restting to straight");
 		while(abs(GridGetGyroDegrees()-GridDirection) > 3)
@@ -282,7 +288,7 @@ void GridTurnToLine()
 		}
 
 		/*Get past zero if going to the left */
-		if(rightLimit == 45)
+		if(rightLimit == GRID_TURN_TO_LINE_DEGREES)
 		{
 			while(GridGetGyroDegrees() > 340)
 			{
