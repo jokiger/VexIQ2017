@@ -2,7 +2,7 @@
 #pragma config(Sensor, port3,  gyrosensor,     sensorVexIQ_Gyro)
 #pragma config(Sensor, port4,  ledback,        sensorVexIQ_LED)
 #pragma config(Sensor, port5,  bumper1,        sensorVexIQ_Touch)
-#pragma config(Sensor, port8,  rightcolor,     sensorVexIQ_Color12Color)
+#pragma config(Sensor, port8,  rightcolor,     sensorVexIQ_ColorGrayscale)
 #pragma config(Sensor, port11, ledfront,       sensorVexIQ_LED)
 #pragma config(Motor,  motor6,          ls,            tmotorVexIQ, PIDControl, reversed, driveLeft, encoder)
 #pragma config(Motor,  motor7,          e,             tmotorVexIQ, PIDControl, encoder)
@@ -18,20 +18,21 @@
 
 
 /*Setup*/
-#define GRID_WIDTH 2
-#define GRID_LENGTH 2
-#define GRID_THRESHHOLD_FOLLOWER 120
-#define GRID_THRESHHOLD_DETECTOR 120
-#define GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER  0
-#define GRID_PORT_COLOR_SENSOR_LINE_DETECTOR  0
+#define GRID_WIDTH 4
+#define GRID_LENGTH 8
+#define GRID_THRESHHOLD_FOLLOWER 100
+#define GRID_THRESHHOLD_DETECTOR 100
+#define GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER  centercolor
+#define GRID_PORT_COLOR_SENSOR_LINE_DETECTOR  rightcolor
 #define GRID_PORT_GYRO  gyrosensor
-#define GRID_GYRO_THRESHOLD 1
+#define GRID_GYRO_THRESHOLD 2
 #define GRID_MOTOR_RIGHT rs
 #define GRID_MOTOR_LEFT ls
 #define GRID_MOTOR_TRAVEL_PER_TURN_IN_MM 200
+int GRID_MOVE_AFTER_LINE = 100;
 
 int GRID_SPEED_PRIMARY = 75;
-int GRID_SPEED_SECONDARY = 25;
+int GRID_SPEED_SECONDARY = 60;
 int GRID_TURN_SPEED_FAST = 50;
 int GRID_TURN_SPEED_SLOW = 0;
 bool GRID_DEBUG = true;
@@ -64,6 +65,23 @@ void GridSetLocation(int x,int y)
 {
 	GridX = x;
 	GridY = y;
+}
+void GridMoveForward(int mm)
+{
+	int Rotation = (((float)mm/(float)GRID_MOTOR_TRAVEL_PER_TURN_IN_MM) * 360);
+	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation,GRID_SPEED_PRIMARY);
+	moveMotorTarget(GRID_MOTOR_LEFT,Rotation,GRID_SPEED_PRIMARY);
+	waitUntilMotorStop(GRID_MOTOR_RIGHT);
+	waitUntilMotorStop(GRID_MOTOR_LEFT);
+}
+
+void GridMoveBackward(int mm)
+{
+	int Rotation = (((float)mm/(float)GRID_MOTOR_TRAVEL_PER_TURN_IN_MM) * 360);
+	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation*-1,GRID_SPEED_PRIMARY);
+	moveMotorTarget(GRID_MOTOR_LEFT,Rotation*-1,GRID_SPEED_PRIMARY);
+	waitUntilMotorStop(GRID_MOTOR_RIGHT);
+	waitUntilMotorStop(GRID_MOTOR_LEFT);
 }
 void GridStatus(const char * s)
 {
@@ -103,7 +121,8 @@ void GridUpdateStatus()
 	if(GRID_DEBUG)
 	{
 		displayTextLine(line1,"%d:%d %d:%d Dir:%d:%d:%d",GridX,GridY,TargetX,TargetY,GridGetGyroDegrees(),TargetDir,GridDirection);
-		/*displayTextLine(line2,"%d:%d  %d:%d",getDistanceValue(distLeft),getDistanceValue(distRight),getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER),getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR));*/
+	//	displayTextLine(line2,"%d:%d  %d:%d",getDistanceValue(distLeft),getDistanceValue(distRight),getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER),getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR));
+		displayTextLine(line2,"%d:%d",getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER),getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR));
 		displayText(line3,sGridStatus);
 	}
 }
@@ -122,12 +141,12 @@ void GridInit()
 	GridStatus("GridInit");
 	short count = 200;
 	startGyroCalibration( GRID_PORT_GYRO, gyroCalibrateSamples64 );
+
 	// delay so calibrate flag can be set internally to the gyro
 	wait1Msec(100);
 
-
 	/* Initialize Color Sensors while gyro is calibrating*/
-	/*if(getColorMode(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) != colorTypeGrayscale_Reflected)
+	if(getColorMode(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) != colorTypeGrayscale_Reflected)
 	{
 		setColorMode(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER, colorTypeGrayscale_Reflected);
 		while(!getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER))
@@ -135,6 +154,7 @@ void GridInit()
 			sleep(25);
 		}
 	}
+	return;
 	if(getColorMode(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR) != colorTypeGrayscale_Reflected)
 	{
 		setColorMode(GRID_PORT_COLOR_SENSOR_LINE_DETECTOR, colorTypeGrayscale_Reflected);
@@ -142,7 +162,7 @@ void GridInit()
 		{
 			sleep(25);
 		}
-	}*/
+	}
 	// wait for calibration to finish or 2 seconds, whichever is longer
 	while( getGyroCalibrationFlag(GRID_PORT_GYRO) && (count-- > 0) ) {
 		char Status[64];
@@ -210,7 +230,7 @@ void GridTurnToLine()
 {
 	bool bFound = false;
 	bool bOnLine = false;
-	bool bReverse=true;
+	bool bReverse=false;
 	updateMotorDriveTrain();
 #ifndef	GRID_NO_MOVE
 	setMotorSpeeds(GRID_TURN_SPEED_FAST, GRID_TURN_SPEED_FAST*-1);
@@ -235,6 +255,7 @@ void GridTurnToLine()
 
 	while(!bFound && !bReverse)
 	{
+		setTouchLEDColor(ledfront,colorRed);
 		if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) < GRID_THRESHHOLD_DETECTOR)
 		{
 			bOnLine = true;
@@ -278,7 +299,7 @@ void GridTurnToLine()
 		GridStatus("GridTurnToLine Left");
 		while(!bFound && !bReverse)
 		{
-
+		setTouchLEDColor(ledfront,colorGreen);
 			if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) < GRID_THRESHHOLD_DETECTOR)
 			{
 				bFound = true;
@@ -351,6 +372,7 @@ void GridProcess()
 		if(getColorGrayscale(GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER) > GRID_THRESHHOLD_FOLLOWER)
 		{
 			GridStatus("Off the line");
+			setTouchLEDColor(ledback,colorRed);
 #ifndef GRID_NO_MOVE
 			setMotorSpeeds(GRID_SPEED_SECONDARY, GRID_SPEED_PRIMARY);
 #endif
@@ -358,6 +380,7 @@ void GridProcess()
 		else
 		{
 			GridStatus("On the line");
+			setTouchLEDColor(ledback,colorGreen);
 #ifndef GRID_NO_MOVE
 			setMotorSpeeds(GRID_SPEED_PRIMARY, GRID_SPEED_SECONDARY);
 #endif
@@ -389,6 +412,7 @@ void GridProcess()
 		/*Reached the target*/
 		if(!gridPause)
 		{
+			GridMoveForward(GRID_MOVE_AFTER_LINE);
 #ifndef GRID_NO_MOVE
 			GridStopAllMotors();
 #endif
@@ -402,6 +426,7 @@ void GridFindLine(bool bFarSide)
 {
 	bool bFound = false;
 	GridStatus("Finding Line");
+	updateMotorDriveTrain();
 #ifndef GRID_NO_MOVE
 	setMotorSpeeds(GRID_SPEED_PRIMARY, GRID_SPEED_PRIMARY);
 #endif
@@ -428,312 +453,164 @@ void GridFindLine(bool bFarSide)
 #endif
 }
 
-void GridMoveForward(int mm)
-{
-	int Rotation = (((float)mm/(float)GRID_MOTOR_TRAVEL_PER_TURN_IN_MM) * 360);
-	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation,GRID_SPEED_PRIMARY);
-	moveMotorTarget(GRID_MOTOR_LEFT,Rotation,GRID_SPEED_PRIMARY);
-	waitUntilMotorStop(GRID_MOTOR_RIGHT);
-	waitUntilMotorStop(GRID_MOTOR_LEFT);
-}
 
-void GridMoveBackward(int mm)
-{
-	int Rotation = (((float)mm/(float)GRID_MOTOR_TRAVEL_PER_TURN_IN_MM) * 360);
-	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation*-1,GRID_SPEED_PRIMARY);
-	moveMotorTarget(GRID_MOTOR_LEFT,Rotation*-1,GRID_SPEED_PRIMARY);
-	waitUntilMotorStop(GRID_MOTOR_RIGHT);
-	waitUntilMotorStop(GRID_MOTOR_LEFT);
-}
 
 /*
 * Grid Tracker End
 */
 
-
-
-//breverse is the status of the controller's forward/reverse
-//Fdown toggles directions
-bool bReverse = true;
-
-
-//built in function
-//change to send controller's joystick values base on breverse
-void myArcadeControl(TVexJoysticks verticalJoystick = ChA, TVexJoysticks horizontalJoystick = ChB, short threshold = 30)
+bool bDone = false;
+task Elevator()
 {
-	short nRightSideSpeed;
-	short nLeftSideSpeed;
-
-	updateMotorDriveTrain();
-
-	if(abs(vexRT[verticalJoystick]) <= abs(threshold) && abs(vexRT[horizontalJoystick]) <= abs(threshold))
+	bool bMotorOverlimit = false;
+	setMotor(e,-100);
+	while(!bDone)
 	{
-		nRightSideSpeed = 0;
-		nLeftSideSpeed 	= 0;
-	}
-	else
-	{
-		nRightSideSpeed = ((getJoystickValue(verticalJoystick) - getJoystickValue(horizontalJoystick))/2);
-		nLeftSideSpeed = ((getJoystickValue(verticalJoystick) + getJoystickValue(horizontalJoystick))/2);
-
-		if(nGlobalJoyScaledValue != nMaxJoyScaleValue)
-		{
-			nRightSideSpeed = nRightSideSpeed * (nGlobalJoyScaledValue / 100.0);
-			nLeftSideSpeed 	= nLeftSideSpeed * (nGlobalJoyScaledValue / 100.0);
-		}
-	}
-	displayTextLine(line3,"%d:%d",nRightSideSpeed,nLeftSideSpeed);
-	//chage added
-	if(bReverse)
-		setMotorSpeeds(nLeftSideSpeed, nRightSideSpeed); //revese
-	else
-		setMotorSpeeds(nRightSideSpeed, nLeftSideSpeed); //forward
-}
-
-task main()
-{
-	bool bArcadeControl = false; //desides if the robot is going in tank control or arcade control
-	bool bumper1Pressed = false; //when press move flipper
-	bool btnFDownPressed = false; //when press toggles directions of the controller's forward/reverse
-	bool btnFUpPressed = false; //when press toggles between tank control or arcade control
-	bool bMotorOverlimit = false; //checks of motor is over current limit
-	bool btnRDownPressed = false; //make it go forward
-	bool btnLDownPressed = false;
-	bool bumperdisabled = false;
-	int StraightDirection = 0;
-	GridInit();
-	//program init
-	setMotorCurrentLimit(flipper, 800);
-	//display modes
-	displayText(line1, "forward");
-	displayText(line2, "tank");
-  if(bReverse)
-  {
-  	displayText(line1, "reverse");
-		setMotorReversed(ls, true);
-		setMotorReversed(rs, false);
-  }
-	//checking forever
-	//processing button presses
-	repeat (forever) {
-		//check if amps morter flipper is using and if is doing it over limit
-		if(getMotorCurrent(flipper) > 600 && !bMotorOverlimit)
+	//check if amps morter flipper is using and if is doing it over limit
+		if(getMotorCurrent(e) > 600 && !bMotorOverlimit)
 		{
 			bMotorOverlimit = true;
 			clearTimer(T1);
 		}
 		//set flipper amps using to 0 so you cn move it freely
-		else if(getMotorCurrent(flipper) > 600 && bMotorOverlimit)
+		else if(getMotorCurrent(e) > 600 && bMotorOverlimit)
 		{
-			if(time1[T1] > 5000)
+			if(time1[T1] > 275)
 			{
-				setMotorSpeed(flipper,0);
-				setMotorBrakeMode(flipper, motorCoast);
+				setMotorSpeed(e,100);
+				sleep(375);
 			}
 		}
 		else
 		{
+			setMotorSpeed(e,-100);
 			bMotorOverlimit = false;
 		}
-
-		if(!btnRDownPressed)
-		{
-			//tank control
-			if(!bArcadeControl)
-			{
-				tankControl(ChD,ChA,10);
-				if(bReverse)
-				{
-					setTouchLEDColor(ledback,colorGreen);
-          setTouchLEDColor(ledfront, colorNone);
-			  }
-			  else
-			  {
-			  	setTouchLEDColor(ledfront, colorGreen);
-          setTouchLEDColor(ledback, colorNone);
-			  }
-
-
-
-			}
-			// arcade control
-			else
-			{
-				myArcadeControl(ChD,ChC,10);
-				if(bReverse)
-				{
-					setTouchLEDColor(ledback,colorRed);
-          setTouchLEDColor(ledfront, colorNone);
-			  }
-			  else
-			  {
-			  	setTouchLEDColor(ledfront, colorRed);
-          setTouchLEDColor(ledback, colorNone);
-			  }
-			}
-		}
-		//elevator
-		//elevator direction based on button presses
-		armControl(e, BtnRUp, BtnLUp, 100);
-
-
-		//manual flipper controls
-		if( vexRT[ BtnEDown ] == 1)
-		{
-			moveMotorTarget(flipper, 10, 50);
-		}
-
-		if( vexRT[ BtnEUp ] == 1)
-		{
-			moveMotorTarget(flipper, -10, 50);
-		}
-
-		if(!bumperdisabled)
-		{
-			//auto flipper based on bumper1 and bumper1pressed
-			if(getBumperValue(bumper1) && bumper1Pressed == false)
-			{
-
-				setMotorTarget(flipper, -110, 20);
-				bumper1Pressed = true;
-			}
-
-			if(!getBumperValue(bumper1) && bumper1Pressed)
-			{
-				setMotorTarget(flipper,0, 20);
-				bumper1Pressed = false;
-				// resetMotorEncoder(flipper);
-
-			}
-
-		}
-		//toggle between forward/revers
-		if(vexRT [BtnFDown]  == 1 && !btnFDownPressed)
-		{
-			btnFDownPressed = true;
-			if(bReverse)
-			{
-				displayText(line1, "forward");
-				setMotorReversed(ls, false);
-				setMotorReversed(rs, true);
-				bReverse=false;
-			}
-			else
-			{
-				displayText(line1, "reverse");
-				setMotorReversed(ls, true);
-				setMotorReversed(rs, false);
-				bReverse=true;
-			}
-
-		}
-		if(vexRT [BtnFDown]  == 0)
-			btnFDownPressed = false;
-
-
-
-
-
-
-		//toggle between arcade and tank controls
-		if( vexRT[ BtnFUp ] == 1 && bArcadeControl && !btnFUpPressed)
-		{
-			btnFUpPressed = true;
-			bArcadeControl = false;
-			displayText(line2, "tank");
-		}
-		else if( vexRT[ BtnFUp ] == 1 && !bArcadeControl && !btnFUpPressed)
-		{
-			btnFUpPressed = true;
-			bArcadeControl = true;
-			displayText(line2, "arcade");
-		}
-		if( vexRT[ BtnFUp ] == 0)
-			btnFUpPressed = false;
-
-		//make it go forward
-		if( vexRT[ BtnRDown ] == 1  && !btnRDownPressed)
-		{
-			btnRDownPressed = true;
-			StraightDirection = getGyroHeading(gyrosensor);
-
-			playSound(soundCarAlarm2);
-			setMotor(rs,100);
-			setMotor(ls,100);
-
-
-		}
-		else if( vexRT[ BtnRDown ] == 1)
-		{
-			int Distance = 0;
-			if(abs(GridGetGyroDegrees()-StraightDirection) > GRID_GYRO_THRESHOLD)
-	    {
-    		Distance = GridGetDistance(GridGetGyroDegrees(),StraightDirection);
-		    if(Distance > 0 && Distance <= 180)
-		    {
-		    	displayTextLine(line4,"Right %d",Distance);
-			     //Right
-		      if(bReverse)
-		      {
-		    	setMotor(rs,100);
-			    setMotor(ls,90);
-			    }
-			    else
-			    {
-			    	setMotor(ls,100);
-			    	setMotor(rs,90);
-			    }
-				}
-		    else
-		    {
-		    	displayTextLine(line4,"Left %d",Distance);
-		    	if(bReverse)
-		    	{
-			    //Left
-		    	setMotor(rs,100);
-			    setMotor(ls,90);
-			  }
-			  else
-			  {
-			  	setMotor(ls,100);
-			  	setMotor(rs,90);
-
-			  }
-		    }
-	    }
-	    else
-	    {
-	    	displayTextLine(line4,"Straight %d",Distance);
-		      setMotor(rs,100);
-			    setMotor(ls,100);
-		  }
-		}
-		else if( vexRT[ BtnRDown ] == 0 && btnRDownPressed)
-		{
-			btnRDownPressed = false;
-			playSound(soundCarAlarm4);
-			stopMotor(rs);
-			stopMotor(ls);
-
-		}
-
-
-	//Disable Bumber
-	/*if( vexRT[ BtnLDown ] == 1  && !btnLDownPressed)
-	{
-		btnLDownPressed = true;
-		if(bumperdisabled)
-			bumperdisabled = false;
-		else
-			bumperdisabled = true;
-
-	}
-	else if( vexRT[ BtnLDown ] == 0 && btnLDownPressed)
-	{
-		btnLDownPressed = false;
-
-	}*/
-
+  }
+  setMotor(e,0);
 }
+task main()
+{
+	 bool bDone = false;
+	 int job=1;
+	 bool bumperdisabled=true;
+	 bool bumper1Pressed=false;
+	 //set ups the grid tracter and sensers
+	 startTask(Elevator);
+	 while(!bDone)
+	 {
+	 }
+   GridInit();
+   sleep(1000);
+   //go to frist line
+   GridFindLine(true);
+
+   //mke robot turn right
+   GridSetDirection(GRID_DIR_EAST);
+   //go backwards
+   GridMoveBackward(300);
+   //tell it were it is
+   GridSetLocation(2,2);
+   //set target to were he goes
+ 	 TargetX = 2;
+	 TargetY = 2;
+
+
+   while (!bDone) {
+       GridProcess();
+			if(!bumperdisabled)
+			{
+				//auto flipper based on bumper1 and bumper1pressed
+				if(getBumperValue(bumper1) && bumper1Pressed == false)
+				{
+
+					setMotorTarget(flipper, -110, 20);
+					bumper1Pressed = true;
+				}
+
+				if(!getBumperValue(bumper1) && bumper1Pressed)
+				{
+					setMotorTarget(flipper,0, 20);
+					bumper1Pressed = false;
+					// resetMotorEncoder(flipper);
+
+				}
+
+			}
+       if(gridPause)
+       {
+   	 		 switch(job)
+   	  	 {
+   	     	case 1:
+   	     	{
+      	     displayTextLine(line5,"Job %d",job);
+						//make robot go in line to the bonus tray right side
+					  	TargetX = 3;
+						  TargetY = 2;
+						  GridResume();
+						   job++;
+   	      	   break;
+   	    	 }
+   	    	 case 2:
+   	    	 {
+   	    	   //go to bounus tray right side and release it
+      	       displayTextLine(line5,"Job %d",job);
+						  GridSetDirection(GRID_DIR_NORTH);
+						  GridMoveBackward(100);
+						  GRID_MOVE_AFTER_LINE = 75;
+						  GridGoto(3,8);
+
+						   job++;
+   	    	    break;
+   	       }
+   	       case 3:
+   	       {
+   	         displayTextLine(line5,"Job %d",job);
+   	         //go to by left bonus tray
+   	          GridMoveBackward(250);
+   	          playSound(soundTada);
+   	          GridSetDirection(GRID_DIR_WEST);
+   	          GridMoveBackward(150);
+   	          playSound(soundTada);
+   	          GridSetLocation(3,7);
+   	          GridGoto(1,7);
+   	          job++;
+   	          break;
+   	       }
+   	       case 4:
+   	       {
+   	         displayTextLine(line5,"Job %d",job);
+   	         //move robot off the wall
+   	          GridMoveBackward(150);
+   	          //make robot face bouns tray
+   	         GridSetDirection(GRID_DIR_NORTH);
+   	         // release bouns tray
+   	          GridMoveForward(25);
+
+   	         job++;
+   	          break;
+   	       }
+   	       case 5:
+   	       {
+   	         displayTextLine(line5,"Job %d",job);
+   	         GridMoveBackward(250);
+   	         GridSetDirection(GRID_DIR_WEST);
+   	         startTask(Elevator);
+   	         bumperdisabled=false;
+   	        GridMoveBackward(600);
+   	         job++;
+   	     }
+   	    	 case 6:
+   	    	 {
+   	    	   displayTextLine(line5,"Job %d",job);
+   	    	  // bDone = true;
+   	    	     break;
+   	       }
+
+   	  	}
+   	  }
+   }
+   playSound(soundTada);
+
 
 }
