@@ -22,6 +22,9 @@
 #define GRID_MOTOR_LEFT ls
 #define GRID_MOTOR_TRAVEL_PER_TURN_IN_MM 200
 #define GRID_TURN_TO_LINE_DEGREES 45
+#define GRID_TIMER T2
+int GRID_SET_DIRECTION_TIMEOUT = 0;
+int GRID_MOVE_TIMEOUT = 0;
 int GRID_MOVE_AFTER_LINE = 100;
 
 int GRID_SPEED_PRIMARY = 75;
@@ -40,7 +43,10 @@ int TargetX = 1;
 int TargetY = 1;
 int TargetDir = 0;
 bool gridPause=true;
-
+bool bSetDirectionDone = false;
+bool bSetDirectionTimeout = false;
+bool bMoveDone = false;
+bool bMoveTimeout = false;
 #define GRID_DIR_NORTH 0
 #define GRID_DIR_EAST  270
 #define GRID_DIR_SOUTH  180
@@ -50,7 +56,18 @@ int GridDirection = GRID_DIR_NORTH;
 string sGridStatus = "";
 bool bLineDetected = false;
 //#define GRID_NO_MOVE
-
+task GridSetDirectionTimeoutTask()
+{
+	clearTimer(GRID_TIMER);
+	while(!bSetDirectionDone && !bSetDirectionTimeout)
+	{
+		if(time1[GRID_TIMER] > GRID_SET_DIRECTION_TIMEOUT)
+		{
+			bSetDirectionTimeout=true;
+		}
+		sleep(50);
+  }
+}
 void GridStopAllMotors()
 {
 	stopMotor(GRID_MOTOR_RIGHT);
@@ -64,19 +81,39 @@ void GridSetLocation(int x,int y)
 void GridMoveForward(int mm)
 {
 	int Rotation = (((float)mm/(float)GRID_MOTOR_TRAVEL_PER_TURN_IN_MM) * 360);
+	bMoveDone=false;
+	bMoveTimeout=false;
+	clearTimer(GRID_TIMER);
 	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation,GRID_SPEED_PRIMARY);
 	moveMotorTarget(GRID_MOTOR_LEFT,Rotation,GRID_SPEED_PRIMARY);
-	waitUntilMotorStop(GRID_MOTOR_RIGHT);
-	waitUntilMotorStop(GRID_MOTOR_LEFT);
+	while(!getMotorZeroVelocity(GRID_MOTOR_RIGHT) && !getMotorZeroVelocity(GRID_MOTOR_RIGHT) && !bMoveTimeout)
+	{
+		 if(GRID_MOVE_TIMEOUT && time1[GRID_TIMER] > GRID_MOVE_TIMEOUT)
+		 {
+		   bMoveTimeout=true;
+	   }
+	   sleep(1);
+  }
+	bMoveDone=true;
 }
 
 void GridMoveBackward(int mm)
 {
 	int Rotation = (((float)mm/(float)GRID_MOTOR_TRAVEL_PER_TURN_IN_MM) * 360);
-	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation*-1,GRID_SPEED_PRIMARY);
-	moveMotorTarget(GRID_MOTOR_LEFT,Rotation*-1,GRID_SPEED_PRIMARY);
-	waitUntilMotorStop(GRID_MOTOR_RIGHT);
-	waitUntilMotorStop(GRID_MOTOR_LEFT);
+	bMoveDone=false;
+	bMoveTimeout=false;
+	clearTimer(GRID_TIMER);
+	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation,GRID_SPEED_PRIMARY*-1);
+	moveMotorTarget(GRID_MOTOR_LEFT,Rotation,GRID_SPEED_PRIMARY*-1);
+	while(!getMotorZeroVelocity(GRID_MOTOR_RIGHT) && !getMotorZeroVelocity(GRID_MOTOR_RIGHT) && !bMoveTimeout)
+	{
+		 if(GRID_MOVE_TIMEOUT && time1[GRID_TIMER] > GRID_MOVE_TIMEOUT)
+		 {
+		   bMoveTimeout=true;
+	   }
+	   sleep(1);
+  }
+	bMoveDone=true;
 }
 void GridStatus(const char * s)
 {
@@ -195,10 +232,16 @@ void GridGoto(int x,int y)
 void GridSetDirection(int Direction)
 {
 	GridStatus("GridSetDirection");
+	bSetDirectionTimeout=false;
+	bSetDirectionDone=false;
 	updateMotorDriveTrain();
 	TargetDir=Direction;
+	if(GRID_SET_DIRECTION_TIMEOUT)
+	{
+  	startTask(GridSetDirectionTimeoutTask);
+  }
 
-	while(abs(GridGetGyroDegrees()-Direction) > GRID_GYRO_THRESHOLD)
+	while(abs(GridGetGyroDegrees()-Direction) > GRID_GYRO_THRESHOLD && !bSetDirectionTimeout)
 	{
 		int Distance = GridGetDistance(GridGetGyroDegrees(),Direction);
 		if(Distance > 0 && Distance <= 180)
@@ -220,6 +263,7 @@ void GridSetDirection(int Direction)
 	GridStopAllMotors();
 #endif
 	GridDirection = Direction;
+	bSetDirectionDone = true;
 }
 
 void GridTurnToLine()
