@@ -86,10 +86,13 @@ void GridMoveForward(int mm)
 	clearTimer(GRID_TIMER);
 	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation,GRID_SPEED_PRIMARY);
 	moveMotorTarget(GRID_MOTOR_LEFT,Rotation,GRID_SPEED_PRIMARY);
+	sleep(50);
 	while(!getMotorZeroVelocity(GRID_MOTOR_RIGHT) && !getMotorZeroVelocity(GRID_MOTOR_RIGHT) && !bMoveTimeout)
 	{
 		 if(GRID_MOVE_TIMEOUT && time1[GRID_TIMER] > GRID_MOVE_TIMEOUT)
 		 {
+		   stopMotor(GRID_MOTOR_RIGHT);
+       stopMotor(GRID_MOTOR_LEFT);
 		   bMoveTimeout=true;
 	   }
 	   sleep(1);
@@ -103,12 +106,15 @@ void GridMoveBackward(int mm)
 	bMoveDone=false;
 	bMoveTimeout=false;
 	clearTimer(GRID_TIMER);
-	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation,GRID_SPEED_PRIMARY*-1);
-	moveMotorTarget(GRID_MOTOR_LEFT,Rotation,GRID_SPEED_PRIMARY*-1);
+	moveMotorTarget(GRID_MOTOR_RIGHT,Rotation*-1,GRID_SPEED_PRIMARY);
+	moveMotorTarget(GRID_MOTOR_LEFT,Rotation*-1,GRID_SPEED_PRIMARY);
+	sleep(50);
 	while(!getMotorZeroVelocity(GRID_MOTOR_RIGHT) && !getMotorZeroVelocity(GRID_MOTOR_RIGHT) && !bMoveTimeout)
 	{
 		 if(GRID_MOVE_TIMEOUT && time1[GRID_TIMER] > GRID_MOVE_TIMEOUT)
 		 {
+		   stopMotor(GRID_MOTOR_RIGHT);
+       stopMotor(GRID_MOTOR_LEFT);
 		   bMoveTimeout=true;
 	   }
 	   sleep(1);

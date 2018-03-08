@@ -1,8 +1,10 @@
+#pragma config(Sensor, port1,  bumper1,        sensorVexIQ_Touch)
 #pragma config(Sensor, port2,  centercolor,    sensorVexIQ_ColorGrayscale)
 #pragma config(Sensor, port3,  gyrosensor,     sensorVexIQ_Gyro)
 #pragma config(Sensor, port4,  ledback,        sensorVexIQ_LED)
-#pragma config(Sensor, port5,  bumper1,        sensorVexIQ_Touch)
+#pragma config(Sensor, port5,  RightDistance,  sensorVexIQ_Distance)
 #pragma config(Sensor, port8,  rightcolor,     sensorVexIQ_ColorGrayscale)
+#pragma config(Sensor, port10, LeftDistance,   sensorVexIQ_Distance)
 #pragma config(Sensor, port11, ledfront,       sensorVexIQ_LED)
 #pragma config(Motor,  motor6,          ls,            tmotorVexIQ, PIDControl, reversed, driveLeft, encoder)
 #pragma config(Motor,  motor7,          e,             tmotorVexIQ, PIDControl, encoder)
@@ -12,7 +14,7 @@
 
 #define GRID_WIDTH 4
 #define GRID_LENGTH 8
-#define GRID_THRESHHOLD_FOLLOWER 150
+#define GRID_THRESHHOLD_FOLLOWER 200
 #define GRID_THRESHHOLD_DETECTOR 100
 #define GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER  centercolor
 #define GRID_PORT_COLOR_SENSOR_LINE_DETECTOR  rightcolor
@@ -21,11 +23,11 @@
 #define GRID_MOTOR_RIGHT rs
 #define GRID_MOTOR_LEFT ls
 #define GRID_MOTOR_TRAVEL_PER_TURN_IN_MM 200
-#define GRID_TURN_TO_LINE_DEGREES 10
+#define GRID_TURN_TO_LINE_DEGREES 20
 #define GRID_TIMER T2
 int GRID_SET_DIRECTION_TIMEOUT = 0;
 int GRID_MOVE_TIMEOUT = 0;
-int GRID_MOVE_AFTER_LINE = 110;
+int GRID_MOVE_AFTER_LINE = 60;
 
 int GRID_SPEED_PRIMARY = 75;
 int GRID_SPEED_SECONDARY = 50;
@@ -65,9 +67,10 @@ task Elevator()
   }
   setMotor(e,0);
 }
+bool bumper1Pressed=false;
 task CheckBumper()
 {
-		 bool bumper1Pressed=false;
+
 		while(!bDone)
 		{
 				//auto flipper based on bumper1 and bumper1pressed
@@ -89,9 +92,45 @@ task CheckBumper()
 
 	  }
 }
+void GotoPoll()
+{
+	  bool done = false;
+	  int MOVE_SPEED=20;
+		while(!done)
+		{
+			displayTextLine(line5,"%d %d",getDistanceValue(LeftDistance),getDistanceValue(RightDistance));
+			if(getDistanceValue(LeftDistance) > 50 && getDistanceValue(RightDistance) > 50)
+			{
+				updateMotorDriveTrain();
+#ifndef GRID_NO_MOVE
+				if(getDistanceValue(LeftDistance) > getDistanceValue(RightDistance))
+				{
+					setMotorSpeeds(MOVE_SPEED,0);
+				}
+				else
+				{
+					setMotorSpeeds(0,MOVE_SPEED);
+				}
+			}
+			else
+			{
+				stopAllMotors();
+			}
+#endif
+				if(bumper1Pressed)
+				{
+					playSound(soundTada);
+					sleep(2000);
+					GridMoveBackward(100);
+					done=true;
+			  }
+		}
+		playSound(soundTada);
+		sleep(2000);
+}
 task main()
 {
-	 bool bDone = false;
+
 	 int job=1;
 
 	 //set ups the grid tracter and sensers
@@ -99,6 +138,7 @@ task main()
 
    GridInit();
    sleep(1000);
+
    //go to frist line
    GridFindLine(true);
 
@@ -137,7 +177,8 @@ task main()
 						  GridSetDirection(GRID_DIR_NORTH);
 						  GridMoveBackward(150);
 						  GridTurnToLine();
-						  GRID_MOVE_AFTER_LINE = 75;
+						  GRID_MOVE_AFTER_LINE = 80;
+						  GRID_MOVE_TIMEOUT = 1000;
 						  GridGoto(3,8);
 
 						   job++;
@@ -151,7 +192,6 @@ task main()
    	          playSound(soundTada);
    	          GridSetDirection(GRID_DIR_WEST);
    	          GridMoveBackward(150);
-   	          playSound(soundTada);
    	          GridSetLocation(3,7);
    	          GridGoto(1,7);
    	          job++;
@@ -163,27 +203,33 @@ task main()
    	         //move robot off the wall
    	          GridMoveBackward(150);
    	          //make robot face bouns tray
+   	          GRID_SET_DIRECTION_TIMEOUT=5000;
    	         GridSetDirection(GRID_DIR_NORTH);
    	         // release bouns tray
-   	          GridMoveForward(50);
-
+   	          GridMoveForward(200);
+						  playSound(soundTada);
    	         job++;
    	          break;
    	       }
    	       case 5:
    	       {
    	         displayTextLine(line5,"Job %d",job);
+   	         GRID_MOVE_TIMEOUT=0;
    	         GridMoveBackward(375);
+
    	         GridSetDirection(GRID_DIR_WEST);
 
    	         startTask(Elevator);
    	         startTask(CheckBumper);
 
-   	         GRID_SPEED_PRIMARY = 10;
-   	        GridMoveBackward(400);
+   	         GRID_SPEED_PRIMARY = 20;
+   	        GridMoveBackward(600);
+   	        GridMoveForward(200);
    	        GRID_TURN_SPEED_FAST = 50;
    	        GRID_TURN_SPEED_SLOW = -50;
+   	        GRID_SET_DIRECTION_TIMEOUT=0;
    	        GridSetDirection(GRID_DIR_EAST);
+
    	        //GridTurnToLine();
    	        GridSetLocation(3,7);
    	        GridGoto(3,8);
@@ -194,8 +240,9 @@ task main()
    	    	 {
    	    	   displayTextLine(line5,"Job %d",job);
    	    	   GridSetDirection(GRID_DIR_EAST);
-   	    	   GridMoveForward(120);
-   	    	   sleep(5500);
+   	    	   //GridMoveForward(120);
+   	    	   GotoPoll();
+   	    	   //sleep(5500);
    	    	   bDone = true;
    	    	     break;
    	       }
@@ -204,6 +251,7 @@ task main()
    	  }
    }
    playSound(soundTada);
+   sleep(2000);
 
 
 }

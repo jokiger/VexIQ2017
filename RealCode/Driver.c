@@ -1,8 +1,6 @@
-#pragma config(Sensor, port2,  centercolor,    sensorVexIQ_ColorGrayscale)
+#pragma config(Sensor, port1,  bumper1,        sensorVexIQ_Touch)
 #pragma config(Sensor, port3,  gyrosensor,     sensorVexIQ_Gyro)
 #pragma config(Sensor, port4,  ledback,        sensorVexIQ_LED)
-#pragma config(Sensor, port5,  bumper1,        sensorVexIQ_Touch)
-#pragma config(Sensor, port8,  rightcolor,     sensorVexIQ_Color12Color)
 #pragma config(Sensor, port11, ledfront,       sensorVexIQ_LED)
 #pragma config(Motor,  motor6,          ls,            tmotorVexIQ, PIDControl, reversed, driveLeft, encoder)
 #pragma config(Motor,  motor7,          e,             tmotorVexIQ, PIDControl, encoder)
@@ -19,7 +17,9 @@
 
 /*Setup*/
 #define GRID_WIDTH 2
-#define GRID_LENGTH 2
+
+
+
 #define GRID_THRESHHOLD_FOLLOWER 120
 #define GRID_THRESHHOLD_DETECTOR 120
 #define GRID_PORT_COLOR_SENSOR_LINE_FOLLOWER  0
